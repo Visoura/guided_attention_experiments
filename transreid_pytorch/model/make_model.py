@@ -251,7 +251,10 @@ class build_transformer(nn.Module):
                 return global_feat
 
     def load_param(self, trained_path):
-        param_dict = torch.load(trained_path, map_location = 'cpu')
+        try:
+            param_dict = torch.load(trained_path, map_location = 'cpu', weights_only=False)
+        except:
+            param_dict = torch.load(trained_path, map_location = 'cpu')
         for i in param_dict:
             try:
                 self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
