@@ -229,6 +229,14 @@ def do_inference(cfg,
     logger.info("mAP: {:.1%}".format(mAP))
     for r in [1, 5, 10]:
         logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
+
+    if cfg.WANDB.ENABLED:
+        wandb.log({
+            "val/mAP": mAP,
+            "val/rank1": cmc[0],
+            "val/rank5": cmc[4],
+            "val/rank10": cmc[9],
+        })
     return cmc[0], cmc[4]
 
 

@@ -429,10 +429,18 @@ class TransReID(nn.Module):
                 print(f'warning. skip {k} params')
                 continue
 
-            if 'patch_embed.proj.weight' in k and len(v.shape) < 4:
-                # For old models that I trained prior to conv based patchification
-                O, I, H, W = self.patch_embed.proj.weight.shape
-                v = v.reshape(O, -1, H, W)
+            if 'patch_embed.proj.weight' in k:
+                if v.shape[0] != self.patch_embed.proj.weight.shape[0]:
+                    print('===========================ERROR=========================')
+                    print('Model architecture mismatch! Weights dimension {} does not match model dimension {}'.format(v.shape[0], self.patch_embed.proj.weight.shape[0]))
+                    print('Expected: {}, Got: {}'.format(self.patch_embed.proj.weight.shape, v.shape))
+                    print('Please check if you are using the correct config file (e.g., vit_small vs vit_base).')
+                    raise RuntimeError('Architecture mismatch')
+
+                if len(v.shape) < 4:
+                    # For old models that I trained prior to conv based patchification
+                    O, I, H, W = self.patch_embed.proj.weight.shape
+                    v = v.reshape(O, -1, H, W)
             elif k == 'pos_embed' and v.shape != self.pos_embed.shape:
                 # To resize pos embedding when using model at different size from pretrained weights
                 if 'distilled' in model_path:
