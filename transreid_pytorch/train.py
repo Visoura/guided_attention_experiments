@@ -4,7 +4,7 @@ from model import make_model
 from solver import make_optimizer, WarmupMultiStepLR
 from solver.scheduler_factory import create_scheduler
 from loss import make_loss
-from processor import do_train
+from processor import do_train, do_inference
 import random
 import torch
 import numpy as np
@@ -101,5 +101,12 @@ if __name__ == '__main__':
         loss_func,
         num_query, args.local_rank
     )
+
+    if cfg.WANDB.ENABLED:
+        if not cfg.MODEL.DIST_TRAIN or (cfg.MODEL.DIST_TRAIN and args.local_rank == 0):
+            logger.info("Running final evaluation...")
+            model.eval()
+            do_inference(cfg, model, val_loader, num_query)
+            wandb.finish()
     #  print(cfg.OUTPUT_DIR)
     #  print(cfg.MODEL.PRETRAIN_PATH)

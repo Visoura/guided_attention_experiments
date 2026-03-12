@@ -101,7 +101,7 @@ def do_train(cfg,
                             "train/acc": acc_meter.avg,
                             "train/lr": base_lr,
                             "epoch": epoch
-                        }, step=epoch * len(train_loader) + n_iter)
+                        }, step=(epoch - 1) * len(train_loader) + n_iter)
 
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)
@@ -154,7 +154,7 @@ def do_train(cfg,
                             "val/rank5": cmc[4],
                             "val/rank10": cmc[9],
                             "epoch": epoch
-                        })
+                        }, step=epoch * len(train_loader))
                     torch.cuda.empty_cache()
             else:
                 model.eval()
@@ -184,7 +184,7 @@ def do_train(cfg,
                         "val/rank5": cmc[4],
                         "val/rank10": cmc[9],
                         "epoch": epoch
-                    })
+                    }, step=epoch * len(train_loader))
                 torch.cuda.empty_cache()
 
 
@@ -236,7 +236,5 @@ def do_inference(cfg,
             "val/rank1": cmc[0],
             "val/rank5": cmc[4],
             "val/rank10": cmc[9],
-        })
+        }, commit=True)
     return cmc[0], cmc[4]
-
-

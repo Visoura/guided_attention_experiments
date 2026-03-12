@@ -40,6 +40,12 @@ if __name__ == "__main__":
     logger.info("Running with config:\n{}".format(cfg))
 
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
+ 
+    if cfg.WANDB.ENABLED:
+        wandb.init(project=cfg.WANDB.PROJECT_NAME, 
+                   entity=cfg.WANDB.ENTITY, 
+                   name=cfg.WANDB.RUN_NAME if cfg.WANDB.RUN_NAME else None,
+                   config=cfg)
 
     train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg)
 
@@ -63,8 +69,11 @@ if __name__ == "__main__":
             logger.info("rank_1:{}, rank_5 {} : trial : {}".format(rank_1, rank5, trial))
         logger.info("sum_rank_1:{:.1%}, sum_rank_5 {:.1%}".format(all_rank_1.sum()/10.0, all_rank_5.sum()/10.0))
     else:
-       do_inference(cfg,
+        do_inference(cfg,
                  model,
                  val_loader,
                  num_query)
+
+    if cfg.WANDB.ENABLED:
+        wandb.finish()
 
