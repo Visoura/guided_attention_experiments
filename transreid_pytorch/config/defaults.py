@@ -201,6 +201,15 @@ _C.TEST.DIST_MAT = "dist_mat.npy"
 # Whether calculate the eval score option: 'True', 'False'
 _C.TEST.EVAL = False
 # ---------------------------------------------------------------------------- #
+# WandB options
+# ---------------------------------------------------------------------------- #
+_C.WANDB = CN()
+_C.WANDB.ENABLED = False
+_C.WANDB.PROJECT_NAME = 'PersonViT'
+_C.WANDB.ENTITY = None
+_C.WANDB.RUN_NAME = None
+
+# ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
 # Path to checkpoint and saved log of trained model

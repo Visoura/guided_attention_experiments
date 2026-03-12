@@ -12,6 +12,7 @@ import os
 import argparse
 from config import cfg
 import torch.distributed as dist
+import wandb
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -63,6 +64,13 @@ if __name__ == '__main__':
     if cfg.MODEL.DIST_TRAIN:
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
     logger.info("Running with config:\n{}".format(cfg))
+
+    if cfg.WANDB.ENABLED:
+        if not cfg.MODEL.DIST_TRAIN or (cfg.MODEL.DIST_TRAIN and args.local_rank == 0):
+            wandb.init(project=cfg.WANDB.PROJECT_NAME, 
+                       entity=cfg.WANDB.ENTITY, 
+                       name=cfg.WANDB.RUN_NAME,
+                       config=cfg)
 
 
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID

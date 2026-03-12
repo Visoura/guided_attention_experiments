@@ -7,6 +7,7 @@ from utils.meter import AverageMeter
 from utils.metrics import R1_mAP_eval
 from torch.cuda import amp
 import torch.distributed as dist
+import wandb
 
 def do_train(cfg,
              model,
@@ -94,6 +95,13 @@ def do_train(cfg,
                     base_lr = scheduler._get_lr(epoch)[0] if cfg.SOLVER.WARMUP_METHOD == 'cosine' else scheduler.get_lr()[0]
                     logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
                                 .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, acc_meter.avg, base_lr))
+                    if cfg.WANDB.ENABLED:
+                        wandb.log({
+                            "train/loss": loss_meter.avg,
+                            "train/acc": acc_meter.avg,
+                            "train/lr": base_lr,
+                            "epoch": epoch
+                        }, step=epoch * len(train_loader) + n_iter)
 
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)
@@ -138,6 +146,15 @@ def do_train(cfg,
                     logger.info("mAP: {:.1%}".format(mAP))
                     for r in [1, 5, 10]:
                         logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
+                    
+                    if cfg.WANDB.ENABLED:
+                        wandb.log({
+                            "val/mAP": mAP,
+                            "val/rank1": cmc[0],
+                            "val/rank5": cmc[4],
+                            "val/rank10": cmc[9],
+                            "epoch": epoch
+                        })
                     torch.cuda.empty_cache()
             else:
                 model.eval()
@@ -159,6 +176,15 @@ def do_train(cfg,
                 logger.info("mAP: {:.1%}".format(mAP))
                 for r in [1, 5, 10]:
                     logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
+                
+                if cfg.WANDB.ENABLED:
+                    wandb.log({
+                        "val/mAP": mAP,
+                        "val/rank1": cmc[0],
+                        "val/rank5": cmc[4],
+                        "val/rank10": cmc[9],
+                        "epoch": epoch
+                    })
                 torch.cuda.empty_cache()
 
 
