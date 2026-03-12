@@ -125,7 +125,10 @@ class ResNet(nn.Module):
         return x
 
     def load_param(self, model_path):
-        param_dict = torch.load(model_path)
+        try:
+            param_dict = torch.load(model_path, weights_only=False)
+        except:
+            param_dict = torch.load(model_path)
         if 'model' in param_dict:
             param_dict = param_dict['model']
         for i in param_dict:

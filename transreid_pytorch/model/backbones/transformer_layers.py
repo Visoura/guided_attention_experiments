@@ -202,7 +202,10 @@ def load_checkpoint(model,
     Returns:
         dict or OrderedDict: The loaded checkpoint.
     """
-    checkpoint = torch.load(filename, map_location=map_location)
+    try:
+        checkpoint = torch.load(filename, map_location=map_location, weights_only=False)
+    except:
+        checkpoint = torch.load(filename, map_location=map_location)
     # OrderedDict is a subclass of dict
     if not isinstance(checkpoint, dict):
         raise RuntimeError(
