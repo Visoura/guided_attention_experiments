@@ -10,7 +10,7 @@ from .softmax_loss import CrossEntropyLabelSmooth, LabelSmoothingCrossEntropy
 from .triplet_loss import TripletLoss
 from .center_loss import CenterLoss
 
-# <--- ADDED START: Inserted the KoLeoLoss class definition
+
 class KoLeoLoss(nn.Module):
     def __init__(self, eps=1e-8):
         super().__init__()
@@ -40,7 +40,7 @@ class KoLeoLoss(nn.Module):
         loss = -torch.mean(torch.log(distances))
         
         return loss
-# <--- ADDED END
+
 
 
 def make_loss(cfg, num_classes):    # modified by gu
@@ -48,13 +48,13 @@ def make_loss(cfg, num_classes):    # modified by gu
     feat_dim = 2048
     center_criterion = CenterLoss(num_classes=num_classes, feat_dim=feat_dim, use_gpu=True)  # center loss
     
-    # <--- ADDED START: Check flag and instantiate KoLeoLoss conditionally
+
     use_koleo = getattr(cfg.MODEL, 'USE_KOLEO_LOSS', False) # Safely checks for the boolean flag
     if use_koleo:
         koleo_criterion = KoLeoLoss()
         koleo_weight = getattr(cfg.MODEL, 'KOLEO_LOSS_WEIGHT', 0.1) # You can tune this hyperparameter
         print(f"KoLeo regularizer is enabled with weight: {koleo_weight}")
-    # <--- ADDED END
+ 
 
     if 'triplet' in cfg.MODEL.METRIC_LOSS_TYPE:
         if cfg.MODEL.NO_MARGIN:
@@ -75,12 +75,12 @@ def make_loss(cfg, num_classes):    # modified by gu
         def loss_func(score, feat, target,target_cam):
             base_loss = F.cross_entropy(score, target)
             
-            # <--- ADDED START: Conditionally add KoLeo loss
+
             if use_koleo:
                 koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
                 return base_loss + (koleo_weight * koleo_reg)
             return base_loss
-            # <--- ADDED END
+           
 
     #  elif cfg.DATALOADER.SAMPLER in ['softmax_triplet', 'id_triplet', 'img_triplet']:
     elif 'triplet' in sampler:
@@ -101,14 +101,14 @@ def make_loss(cfg, num_classes):    # modified by gu
                     else:
                             TRI_LOSS = triplet(feat, target, normalize_feature=cfg.SOLVER.TRP_L2)[0]
 
-                    # <--- ADDED START: Compute base loss, then conditionally add KoLeo
+                    
                     base_loss = cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
                     
                     if use_koleo:
                         koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
                         return base_loss + (koleo_weight * koleo_reg)
                     return base_loss
-                    # <--- ADDED END
+                    
                     
                 else:
                     if isinstance(score, list):
@@ -125,14 +125,14 @@ def make_loss(cfg, num_classes):    # modified by gu
                     else:
                             TRI_LOSS = triplet(feat, target, normalize_feature=cfg.SOLVER.TRP_L2)[0]
 
-                    # <--- ADDED START: Compute base loss, then conditionally add KoLeo
+                    
                     base_loss = cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
                     
                     if use_koleo:
                         koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
                         return base_loss + (koleo_weight * koleo_reg)
                     return base_loss
-                    # <--- ADDED END
+               
             else:
                 print('expected METRIC_LOSS_TYPE should be triplet'
                       'but got {}'.format(cfg.MODEL.METRIC_LOSS_TYPE))
