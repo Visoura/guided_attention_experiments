@@ -132,6 +132,8 @@ def make_loss(cfg, num_classes):    # modified by gu
                     
                     if use_koleo:
                         koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
+                        if koleo_reg is None:
+                            raise ValueError("KoLeo loss is None")
                         total_loss = base_loss + (koleo_weight * koleo_reg)
                         return {"total_loss": total_loss, "koleo_loss": koleo_reg}
                     return base_loss
