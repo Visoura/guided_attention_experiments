@@ -16,9 +16,10 @@ class KoLeoLoss(nn.Module):
         super().__init__()
         self.eps = eps
 
-    def forward(self, x):
+    def forward(self, x, target):
         """
         x: shape (B, D) where B is batch size, D is feature dimension.
+        target: shape (B,) the ID labels of the batch.
         """
         # Normalize the features to the unit hypersphere
         x = F.normalize(x, p=2, dim=-1)
@@ -26,10 +27,15 @@ class KoLeoLoss(nn.Module):
         # Calculate pairwise cosine distances (1 - cosine_similarity)
         sim_matrix = torch.mm(x, x.t())
         
-        # Fill diagonal with -inf so it's ignored in the max() operation
-        sim_matrix.fill_diagonal_(float('-inf'))
+        # MASKING POSITIVES: Find all images that belong to the SAME person
+        # (This also inherently masks the diagonal self-similarity)
+        is_pos = target.expand(x.size(0), x.size(0)).eq(target.expand(x.size(0), x.size(0)).t())
         
-        # Find the maximum similarity (nearest neighbor) for each feature
+        # Fill positive pairs with -inf so they are ignored in the max() operation
+        # Now the model will only push away the nearest neighbor of a DIFFERENT person
+        sim_matrix.masked_fill_(is_pos, float('-inf'))
+        
+        # Find the maximum similarity (nearest neighbor of a DIFFERENT class)
         max_sim, _ = torch.max(sim_matrix, dim=1)
         
         # Euclidean distance squared between normalized vectors = 2 - 2 * cos_sim
@@ -77,7 +83,7 @@ def make_loss(cfg, num_classes):    # modified by gu
             
 
             if use_koleo:
-                koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
+                koleo_reg = koleo_criterion(feat[0],target) if isinstance(feat, list) else koleo_criterion(feat,target)
                 total_loss = base_loss + (koleo_weight * koleo_reg)
                 return {"total_loss": total_loss, "koleo_loss": koleo_reg}
             return base_loss
@@ -106,7 +112,7 @@ def make_loss(cfg, num_classes):    # modified by gu
                     base_loss = cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
                     
                     if use_koleo:
-                        koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
+                        koleo_reg = koleo_criterion(feat[0],target) if isinstance(feat, list) else koleo_criterion(feat,target)
                         total_loss = base_loss + (koleo_weight * koleo_reg)
                         return {"total_loss": total_loss, "koleo_loss": koleo_reg}
                     return base_loss
@@ -131,7 +137,7 @@ def make_loss(cfg, num_classes):    # modified by gu
                     base_loss = cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
                     
                     if use_koleo:
-                        koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
+                        koleo_reg = koleo_criterion(feat[0],target) if isinstance(feat, list) else koleo_criterion(feat,target)
                         if koleo_reg is None:
                             raise ValueError("KoLeo loss is None")
                         total_loss = base_loss + (koleo_weight * koleo_reg)
