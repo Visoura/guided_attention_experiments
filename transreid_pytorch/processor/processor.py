@@ -36,6 +36,7 @@ def do_train(cfg,
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
 
     loss_meter = AverageMeter()
+    koleo_loss_meter = AverageMeter()
     acc_meter = AverageMeter()
 
     evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
@@ -44,6 +45,7 @@ def do_train(cfg,
     for epoch in range(1, epochs + 1):
         start_time = time.time()
         loss_meter.reset()
+        koleo_loss_meter.reset()
         acc_meter.reset()
         evaluator.reset()
         model.train()
@@ -63,7 +65,13 @@ def do_train(cfg,
                 mask = mask.to(device)
             with amp.autocast(enabled=True):
                 score, feat = model(img, target, cam_label=target_cam, view_label=target_view, mask=mask)
-                loss = loss_fn(score, feat, target, target_cam)
+                loss_output = loss_fn(score, feat, target, target_cam)
+                if isinstance(loss_output, dict):
+                    loss = loss_output["total_loss"]
+                    koleo_loss = loss_output["koleo_loss"]
+                else:
+                    loss = loss_output
+                    koleo_loss = None
 
             scaler.scale(loss).backward()
 
@@ -81,6 +89,8 @@ def do_train(cfg,
                 acc = (score.max(1)[1] == target).float().mean()
 
             loss_meter.update(loss.item(), img.shape[0])
+            if koleo_loss is not None:
+                koleo_loss_meter.update(koleo_loss.item(), img.shape[0])
             acc_meter.update(acc, 1)
 
             torch.cuda.synchronize()
@@ -88,20 +98,24 @@ def do_train(cfg,
                 if dist.get_rank() == 0:
                     if (n_iter + 1) % log_period == 0:
                         base_lr = scheduler._get_lr(epoch)[0] if cfg.SOLVER.WARMUP_METHOD == 'cosine' else scheduler.get_lr()[0]
-                        logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
-                                    .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, acc_meter.avg, base_lr))
+                        logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, KoLeoLoss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
+                                    .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, koleo_loss_meter.avg, acc_meter.avg, base_lr))
             else:
                 if (n_iter + 1) % log_period == 0:
                     base_lr = scheduler._get_lr(epoch)[0] if cfg.SOLVER.WARMUP_METHOD == 'cosine' else scheduler.get_lr()[0]
-                    logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
-                                .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, acc_meter.avg, base_lr))
+                    logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, KoLeoLoss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
+                                .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, koleo_loss_meter.avg, acc_meter.avg, base_lr))
                     if cfg.WANDB.ENABLED:
-                        wandb.log({
+                        wandb_log_dict = {
                             "train/loss": loss_meter.avg,
                             "train/acc": acc_meter.avg,
                             "train/lr": base_lr,
                             "epoch": epoch
-                        }, step=(epoch - 1) * len(train_loader) + n_iter)
+                        }
+                        if koleo_loss is not None:
+                            wandb_log_dict["train/koleo_loss"] = koleo_loss_meter.avg
+                        
+                        wandb.log(wandb_log_dict, step=(epoch - 1) * len(train_loader) + n_iter)
 
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)

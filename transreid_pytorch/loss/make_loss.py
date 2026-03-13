@@ -78,7 +78,8 @@ def make_loss(cfg, num_classes):    # modified by gu
 
             if use_koleo:
                 koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
-                return base_loss + (koleo_weight * koleo_reg)
+                total_loss = base_loss + (koleo_weight * koleo_reg)
+                return {"total_loss": total_loss, "koleo_loss": koleo_reg}
             return base_loss
            
 
@@ -106,7 +107,8 @@ def make_loss(cfg, num_classes):    # modified by gu
                     
                     if use_koleo:
                         koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
-                        return base_loss + (koleo_weight * koleo_reg)
+                        total_loss = base_loss + (koleo_weight * koleo_reg)
+                        return {"total_loss": total_loss, "koleo_loss": koleo_reg}
                     return base_loss
                     
                     
@@ -130,7 +132,8 @@ def make_loss(cfg, num_classes):    # modified by gu
                     
                     if use_koleo:
                         koleo_reg = koleo_criterion(feat[0]) if isinstance(feat, list) else koleo_criterion(feat)
-                        return base_loss + (koleo_weight * koleo_reg)
+                        total_loss = base_loss + (koleo_weight * koleo_reg)
+                        return {"total_loss": total_loss, "koleo_loss": koleo_reg}
                     return base_loss
                
             else:
