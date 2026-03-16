@@ -63,8 +63,9 @@ class DINOv3Extractor:
         outputs = self.model(**inputs)
 
         last_hidden = outputs.last_hidden_state
-        cls_token = last_hidden[:, 0:1, :]       # (1, 1, D)
-        patch_tokens = last_hidden[:, 1:, :]     # (1, N, D)
+        cls_token = last_hidden[:, 0:1, :]                           # (1, 1, D)
+        num_reg = self.model.config.num_register_tokens              # typically 4
+        patch_tokens = last_hidden[:, 1 + num_reg:, :]               # (1, N, D) — skip CLS + registers
 
         return {"cls_token": cls_token, "patch_tokens": patch_tokens}
 
