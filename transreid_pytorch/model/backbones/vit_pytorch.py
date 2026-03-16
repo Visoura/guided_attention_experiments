@@ -380,7 +380,7 @@ class TransReID(nn.Module):
             N, P, D = x.shape
             p = x[:, 1:].view(N, P//4, 4, D).max(dim=2)[0].mean(dim=1)
             return p # + x[:, 0]
-
+        # we can return the patch tokens here if we want easily
         return x[:, 0]
 
     def forward(self, x, cam_label=None, view_label=None, mask=None):
