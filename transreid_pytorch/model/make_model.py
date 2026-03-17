@@ -237,7 +237,8 @@ class build_transformer(nn.Module):
             from dinov3_inference import DINOv3Extractor
             dino_key = getattr(cfg.MODEL, 'GRAM_ANCHOR_DINO_MODEL', 'dinov3-vits16-pretrain')
             self.dino_teacher = DINOv3Extractor(dino_key, device='cuda')
-            self.dino_teacher.load()
+            hf_token = getattr(cfg.MODEL, 'HF_TOKEN')
+            self.dino_teacher.load(token=hf_token)
             self.gram_anchor_size = cfg.INPUT.SIZE_TRAIN  # e.g., [384, 128]
             print(f'Loaded frozen DINOv3 teacher: {dino_key}')
 

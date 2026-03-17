@@ -34,11 +34,11 @@ class DINOv3Extractor:
         self.model = None
         self.processor = None
 
-    def load(self):
+    def load(self,token):
         """Load the model and processor onto the target device."""
-        self.model = DINOv3ViTModel.from_pretrained(self.model_id)
+        self.model = DINOv3ViTModel.from_pretrained(self.model_id,token=token)
         self.model = self.model.to(self.device).eval()
-        self.processor = DINOv3ViTImageProcessorFast.from_pretrained(self.model_id)
+        self.processor = DINOv3ViTImageProcessorFast.from_pretrained(self.model_id,token=token)
 
     @torch.no_grad()
     def extract_token(self, image, target_size=None):
