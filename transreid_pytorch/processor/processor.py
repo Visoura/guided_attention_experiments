@@ -37,6 +37,7 @@ def do_train(cfg,
 
     loss_meter = AverageMeter()
     koleo_loss_meter = AverageMeter()
+    gram_loss_meter = AverageMeter()
     acc_meter = AverageMeter()
 
     evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
@@ -46,13 +47,21 @@ def do_train(cfg,
         start_time = time.time()
         loss_meter.reset()
         koleo_loss_meter.reset()
+        gram_loss_meter.reset()
         acc_meter.reset()
         evaluator.reset()
         model.train()
         for n_iter, batch in enumerate(train_loader):
+            img_paths = None
+            mask = None
             if len(batch) == 4:
                 img, vid, target_cam, target_view = batch
-                mask = None
+            elif len(batch) == 5:
+                # (img, pid, camid, viewid, img_paths)
+                img, vid, target_cam, target_view, img_paths = batch
+            elif len(batch) == 6:
+                # guided attention with paths: (img, pid, camid, viewid, img_paths, mask)
+                img, vid, target_cam, target_view, img_paths, mask = batch
             else:
                 img, vid, target_cam, target_view, mask = batch
             optimizer.zero_grad()
@@ -64,14 +73,22 @@ def do_train(cfg,
             if mask is not None:
                 mask = mask.to(device)
             with amp.autocast(enabled=True):
-                score, feat = model(img, target, cam_label=target_cam, view_label=target_view, mask=mask)
-                loss_output = loss_fn(score, feat, target, target_cam)
+                model_output = model(img, target, cam_label=target_cam, view_label=target_view, mask=mask, img_paths=img_paths)
+                if isinstance(model_output, tuple) and len(model_output) == 4:
+                    score, feat, student_tokens, teacher_tokens = model_output
+                else:
+                    score, feat = model_output
+                    student_tokens, teacher_tokens = None, None
+                loss_output = loss_fn(score, feat, target, target_cam,
+                                      student_tokens=student_tokens, teacher_tokens=teacher_tokens)
                 if isinstance(loss_output, dict):
                     loss = loss_output["total_loss"]
-                    koleo_loss = loss_output["koleo_loss"]
+                    koleo_loss = loss_output.get("koleo_loss", None)
+                    gram_loss = loss_output.get("gram_loss", None)
                 else:
                     loss = loss_output
                     koleo_loss = None
+                    gram_loss = None
 
             scaler.scale(loss).backward()
 
@@ -91,6 +108,8 @@ def do_train(cfg,
             loss_meter.update(loss.item(), img.shape[0])
             if koleo_loss is not None:
                 koleo_loss_meter.update(koleo_loss.item(), img.shape[0])
+            if gram_loss is not None:
+                gram_loss_meter.update(gram_loss.item(), img.shape[0])
             acc_meter.update(acc, 1)
 
             torch.cuda.synchronize()
@@ -98,13 +117,13 @@ def do_train(cfg,
                 if dist.get_rank() == 0:
                     if (n_iter + 1) % log_period == 0:
                         base_lr = scheduler._get_lr(epoch)[0] if cfg.SOLVER.WARMUP_METHOD == 'cosine' else scheduler.get_lr()[0]
-                        logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, KoLeoLoss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
-                                    .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, koleo_loss_meter.avg, acc_meter.avg, base_lr))
+                        logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, KoLeoLoss: {:.3f}, GramLoss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
+                                    .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, koleo_loss_meter.avg, gram_loss_meter.avg, acc_meter.avg, base_lr))
             else:
                 if (n_iter + 1) % log_period == 0:
                     base_lr = scheduler._get_lr(epoch)[0] if cfg.SOLVER.WARMUP_METHOD == 'cosine' else scheduler.get_lr()[0]
-                    logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, KoLeoLoss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
-                                .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, koleo_loss_meter.avg, acc_meter.avg, base_lr))
+                    logger.info("Epoch[{}] Iter[{}/{}] Loss: {:.3f}, KoLeoLoss: {:.3f}, GramLoss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
+                                .format(epoch, (n_iter + 1), len(train_loader), loss_meter.avg, koleo_loss_meter.avg, gram_loss_meter.avg, acc_meter.avg, base_lr))
                     if cfg.WANDB.ENABLED:
                         wandb_log_dict = {
                             "train/loss": loss_meter.avg,
@@ -114,6 +133,8 @@ def do_train(cfg,
                         }
                         if koleo_loss is not None:
                             wandb_log_dict["train/koleo_loss"] = koleo_loss_meter.avg
+                        if gram_loss is not None:
+                            wandb_log_dict["train/gram_loss"] = gram_loss_meter.avg
                         
                         wandb.log(wandb_log_dict, step=(epoch - 1) * len(train_loader) + n_iter)
 

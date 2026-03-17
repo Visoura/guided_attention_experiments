@@ -41,12 +41,15 @@ class DINOv3Extractor:
         self.processor = DINOv3ViTImageProcessorFast.from_pretrained(self.model_id)
 
     @torch.no_grad()
-    def extract_token(self, image):
+    def extract_token(self, image, target_size=None):
         """
         Run an image through the model and return CLS + patch tokens.
 
         Args:
             image: PIL Image or path string.
+            target_size: Optional (H, W) tuple. If provided, resize the image
+                         to this size and skip the processor's own resize.
+                         Useful for aligning patch grids with another model.
 
         Returns:
             dict with:
@@ -59,7 +62,11 @@ class DINOv3Extractor:
         if isinstance(image, str):
             image = Image.open(image).convert("RGB")
 
-        inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+        if target_size is not None:
+            image = image.resize((target_size[1], target_size[0]), Image.BICUBIC)  # PIL uses (W, H)
+            inputs = self.processor(images=image, do_resize=False, return_tensors="pt").to(self.device)
+        else:
+            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
         outputs = self.model(**inputs)
 
         last_hidden = outputs.last_hidden_state

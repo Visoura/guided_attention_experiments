@@ -1,4 +1,6 @@
 import torch
+import sys, os
+
 import torch.nn as nn
 from .backbones.resnet import ResNet, Bottleneck
 import copy
@@ -228,11 +230,28 @@ class build_transformer(nn.Module):
 
         self.dropout = nn.Dropout(self.dropout_rate)
 
+        # Gram Anchor Loss: load frozen DINOv3 teacher
+        self.use_gram_anchor = getattr(cfg.MODEL, 'USE_GRAM_ANCHOR_LOSS', False)
+        if self.use_gram_anchor:
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+            from dinov3_inference import DINOv3Extractor
+            dino_key = getattr(cfg.MODEL, 'GRAM_ANCHOR_DINO_MODEL', 'dinov3-vits16-pretrain')
+            self.dino_teacher = DINOv3Extractor(dino_key, device='cuda')
+            self.dino_teacher.load()
+            self.gram_anchor_size = cfg.INPUT.SIZE_TRAIN  # e.g., [384, 128]
+            print(f'Loaded frozen DINOv3 teacher: {dino_key}')
+
         if pretrain_choice == 'self':
             self.load_param(model_path)
 
-    def forward(self, x, label=None, cam_label= None, view_label=None, mask=None):
-        global_feat = self.base(x, cam_label=cam_label, view_label=view_label, mask=mask)
+    def forward(self, x, label=None, cam_label= None, view_label=None, mask=None, img_paths=None):
+        base_out = self.base(x, cam_label=cam_label, view_label=view_label, mask=mask)
+        if isinstance(base_out, tuple):
+            global_feat, patch_tokens = base_out
+        else:
+            global_feat = base_out
+            patch_tokens = None
+
         if self.reduce_feat_dim:
             global_feat = self.fcneck(global_feat)
         feat = self.bottleneck(global_feat)
@@ -244,13 +263,23 @@ class build_transformer(nn.Module):
             else:
                 cls_score = self.classifier(feat_cls)
 
+            if self.use_gram_anchor and patch_tokens is not None and img_paths is not None:
+                # Build student tokens: CLS + patches
+                student_tokens = torch.cat([global_feat.unsqueeze(1), patch_tokens], dim=1)
+                # Run DINOv3 on raw images at same resolution as TransReID
+                with torch.no_grad():
+                    teacher_list = []
+                    for p in img_paths:
+                        tokens = self.dino_teacher.extract_token(p, target_size=self.gram_anchor_size)
+                        teacher_list.append(torch.cat([tokens['cls_token'], tokens['patch_tokens']], dim=1))
+                    teacher_tokens = torch.cat(teacher_list, dim=0)
+                return cls_score, global_feat, student_tokens, teacher_tokens
+
             return cls_score, global_feat  # global feature for triplet loss
         else:
             if self.neck_feat == 'after':
-                # print("Test with feature after BN")
                 return feat
             else:
-                # print("Test with feature before BN")
                 return global_feat
 
     def load_param(self, trained_path):

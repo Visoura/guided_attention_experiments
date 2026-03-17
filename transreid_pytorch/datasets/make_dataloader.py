@@ -22,17 +22,17 @@ __factory = {
 
 def train_collate_fn(batch):
     if len(batch[0]) == 6:
-        imgs, pids, camids, viewids, _, masks = zip(*batch)
+        imgs, pids, camids, viewids, img_paths, masks = zip(*batch)
         pids = torch.tensor(pids, dtype=torch.int64)
         viewids = torch.tensor(viewids, dtype=torch.int64)
         camids = torch.tensor(camids, dtype=torch.int64)
-        return torch.stack(imgs, dim=0), pids, camids, viewids, torch.stack(masks, dim=0)
+        return torch.stack(imgs, dim=0), pids, camids, viewids, img_paths, torch.stack(masks, dim=0)
     
-    imgs, pids, camids, viewids , _ = zip(*batch)
+    imgs, pids, camids, viewids, img_paths = zip(*batch)
     pids = torch.tensor(pids, dtype=torch.int64)
     viewids = torch.tensor(viewids, dtype=torch.int64)
     camids = torch.tensor(camids, dtype=torch.int64)
-    return torch.stack(imgs, dim=0), pids, camids, viewids,
+    return torch.stack(imgs, dim=0), pids, camids, viewids, img_paths
 
 def val_collate_fn(batch):
     if len(batch[0]) == 6:

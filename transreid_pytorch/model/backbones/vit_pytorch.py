@@ -380,8 +380,8 @@ class TransReID(nn.Module):
             N, P, D = x.shape
             p = x[:, 1:].view(N, P//4, 4, D).max(dim=2)[0].mean(dim=1)
             return p # + x[:, 0]
-        # we can return the patch tokens here if we want easily
-        return x[:, 0]
+        # Return CLS token + raw patch tokens for downstream use (e.g., Gram Anchor Loss)
+        return x[:, 0], x[:, 1:]
 
     def forward(self, x, cam_label=None, view_label=None, mask=None):
         x = self.forward_features(x, cam_label, view_label, mask=mask)
