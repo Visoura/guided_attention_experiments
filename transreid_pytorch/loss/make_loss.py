@@ -129,7 +129,7 @@ def make_loss(cfg, num_classes):    # modified by gu
         gram_criterion = GramAnchorLoss(
             student_dim=getattr(cfg.MODEL, 'GRAM_ANCHOR_STUDENT_DIM', 384),
             teacher_dim=getattr(cfg.MODEL, 'GRAM_ANCHOR_TEACHER_DIM', 384),
-        )
+        ).cuda()
         gram_weight = getattr(cfg.MODEL, 'GRAM_ANCHOR_LOSS_WEIGHT', 1.0)
         print(f"Gram Anchor Loss is enabled with weight: {gram_weight}")
     # ---- NEW: Initialize SupCon or Triplet ----
