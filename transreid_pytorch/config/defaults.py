@@ -77,7 +77,10 @@ _C.MODEL.GRAM_ANCHOR_LOSS_WEIGHT = 1.0
 _C.MODEL.HF_TOKEN = None
 _C.MODEL.GRAM_ANCHOR_STUDENT_DIM = 384
 _C.MODEL.GRAM_ANCHOR_TEACHER_DIM = 384
-_C.MODEL.GRAM_ANCHOR_DINO_MODEL = 'dinov3-vits16-pretrain'
+_C.MODEL.GRAM_ANCHOR_TEACHER_TYPE = 'dinov3'          # 'dinov3' or 'personvit'
+_C.MODEL.GRAM_ANCHOR_DINO_MODEL = 'dinov3-vits16-pretrain'  # used when TEACHER_TYPE='dinov3'
+_C.MODEL.GRAM_ANCHOR_TEACHER_CHECKPOINT = ''           # .pth path, used when TEACHER_TYPE='personvit'
+_C.MODEL.GRAM_ANCHOR_TEACHER_MODEL_KEY = 'personvit-vit_small'  # key from PERSONVIT_BACKBONES
 
 # JPM Parameter
 _C.MODEL.JPM = False

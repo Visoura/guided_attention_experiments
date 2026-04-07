@@ -21,14 +21,21 @@ class GramAnchorLoss(nn.Module):
     def forward(self, student_tokens, teacher_tokens):
         """
         Args:
-            student_tokens: (B, N, D_s) — CLS + patch tokens from TransReID
-            teacher_tokens: (B, N, D_t) — CLS + patch tokens from DINOv3
+            student_tokens: (B, N_s, D_s) — CLS + patch tokens from student
+            teacher_tokens: (B, N_t, D_t) — CLS + patch tokens from teacher
         Returns:
             Scalar MSE loss between Gram matrices.
         """
         # Project student dim to match teacher if needed
         if self.proj is not None:
             student_tokens = self.proj(student_tokens)
+
+        # Token counts must match (same patch_size + same input resolution)
+        assert student_tokens.size(1) == teacher_tokens.size(1), (
+            f"Token count mismatch: student has {student_tokens.size(1)} tokens, "
+            f"teacher has {teacher_tokens.size(1)}. Ensure both use the same "
+            f"patch_size and input resolution."
+        )
 
         # L2-normalize along feature dim
         s = F.normalize(student_tokens, p=2, dim=-1)

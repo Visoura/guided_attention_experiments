@@ -230,17 +230,29 @@ class build_transformer(nn.Module):
 
         self.dropout = nn.Dropout(self.dropout_rate)
 
-        # Gram Anchor Loss: load frozen DINOv3 teacher
+        # Gram Anchor Loss: load frozen teacher
         self.use_gram_anchor = getattr(cfg.MODEL, 'USE_GRAM_ANCHOR_LOSS', False)
         if self.use_gram_anchor:
+            teacher_type = getattr(cfg.MODEL, 'GRAM_ANCHOR_TEACHER_TYPE', 'dinov3')
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-            from dinov3_inference import DINOv3Extractor
-            dino_key = getattr(cfg.MODEL, 'GRAM_ANCHOR_DINO_MODEL', 'dinov3-vits16-pretrain')
-            self.dino_teacher = DINOv3Extractor(dino_key, device='cuda')
-            hf_token = getattr(cfg.MODEL, 'HF_TOKEN')
-            self.dino_teacher.load(token=hf_token)
+
+            if teacher_type == 'personvit':
+                from personvit_inference import PersonViTExtractor
+                model_key = getattr(cfg.MODEL, 'GRAM_ANCHOR_TEACHER_MODEL_KEY', 'personvit-vit_small')
+                ckpt_path = getattr(cfg.MODEL, 'GRAM_ANCHOR_TEACHER_CHECKPOINT', '')
+                self.dino_teacher = PersonViTExtractor(model_key, device='cuda',
+                                                       img_size=tuple(cfg.INPUT.SIZE_TRAIN))
+                self.dino_teacher.load(ckpt_path)
+                print(f'Loaded frozen PersonViT teacher: {model_key} from {ckpt_path}')
+            else:  # default: dinov3
+                from dinov3_inference import DINOv3Extractor
+                dino_key = getattr(cfg.MODEL, 'GRAM_ANCHOR_DINO_MODEL', 'dinov3-vits16-pretrain')
+                self.dino_teacher = DINOv3Extractor(dino_key, device='cuda')
+                hf_token = getattr(cfg.MODEL, 'HF_TOKEN')
+                self.dino_teacher.load(token=hf_token)
+                print(f'Loaded frozen DINOv3 teacher: {dino_key}')
+
             self.gram_anchor_size = cfg.INPUT.SIZE_TRAIN  # e.g., [384, 128]
-            print(f'Loaded frozen DINOv3 teacher: {dino_key}')
 
         if pretrain_choice == 'self':
             self.load_param(model_path)
