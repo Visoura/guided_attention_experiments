@@ -11,7 +11,7 @@ import wandb
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ReID Baseline Training")
     parser.add_argument(
-        "--config_file", default="", help="path to config file", type=str
+        "--c", default="", help="path to config file", type=str
     )
     parser.add_argument("opts", help="Modify config options using the command-line", default=None,
                         nargs=argparse.REMAINDER)
@@ -20,8 +20,8 @@ if __name__ == "__main__":
 
 
 
-    if args.config_file != "":
-        cfg.merge_from_file(args.config_file)
+    if args.c != "":
+        cfg.merge_from_file(args.c)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
 
@@ -32,9 +32,9 @@ if __name__ == "__main__":
     logger = setup_logger("transreid", output_dir, if_train=False)
     logger.info(args)
 
-    if args.config_file != "":
-        logger.info("Loaded configuration file {}".format(args.config_file))
-        with open(args.config_file, 'r') as cf:
+    if args.c != "":
+        logger.info("Loaded configuration file {}".format(args.c))
+        with open(args.c, 'r') as cf:
             config_str = "\n" + cf.read()
             logger.info(config_str)
     logger.info("Running with config:\n{}".format(cfg))

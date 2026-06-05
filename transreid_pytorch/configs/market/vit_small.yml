@@ -30,7 +30,7 @@ INPUT:
 
 DATASETS:
   NAMES: ('market1501')
-  ROOT_DIR: ('/home/wahdan/Desktop/Graduation Project/experiments/PersonViT/DATA')
+  ROOT_DIR: ('/home/wahdan/Desktop/GP/guided_attention_experiments/Data')
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -56,8 +56,8 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 16
   RE_RANKING: False
-  WEIGHT: '/home/wahdan/Desktop/Graduation Project/experiments/PersonViT/weights/vit_small_market.pth'
+  WEIGHT: '/home/wahdan/Desktop/GP/guided_attention_experiments/weights/vits-market-transformer_120.pth'
   NECK_FEAT: 'before'
-  FEAT_NORM: 'yes'
+  FEAT_NORM: 'None'
 
-OUTPUT_DIR: '/home/wahdan/Desktop/Graduation Project/experiments/PersonViT/logs/market/vits_market_experiment_1'
+OUTPUT_DIR: '/home/wahdan/Desktop/GP/guided_attention_experiments/transreid_pytorch/logs/test_logging'

@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 
 # data
+*.lock
 DATA/
+Data/
 weights/
 logs/
 # C extensions
