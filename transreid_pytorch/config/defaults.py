@@ -82,6 +82,22 @@ _C.MODEL.GRAM_ANCHOR_DINO_MODEL = 'dinov3-vits16-pretrain'  # used when TEACHER_
 _C.MODEL.GRAM_ANCHOR_TEACHER_CHECKPOINT = ''           # .pth path, used when TEACHER_TYPE='personvit'
 _C.MODEL.GRAM_ANCHOR_TEACHER_MODEL_KEY = 'personvit-vit_small'  # key from PERSONVIT_BACKBONES
 
+# YOLO (Ultralytics) backbone parameters (used when MODEL.NAME == 'yolo')
+_C.MODEL.YOLO = CN()
+# Ultralytics model: .pt (pretrained) or .yaml (scratch), e.g. 'yolo11n.pt',
+# 'yolo11n-seg.pt', 'yolo11n-cls.pt'
+_C.MODEL.YOLO.WEIGHTS = ''
+# Feature-extraction mode: 'auto' infers from the model, else force a task.
+# Options: 'auto' | 'detect' | 'segment' | 'classify'
+_C.MODEL.YOLO.TASK = 'auto'
+# How to fuse multi-scale maps (detect/segment) into one vector.
+# Options: 'gap_concat' | 'deepest' | 'upsample_concat'
+_C.MODEL.YOLO.FUSION = 'gap_concat'
+# Optional explicit layer indices to extract; [] uses the head's input maps.
+_C.MODEL.YOLO.FEATURE_LAYERS = []
+# Freeze the YOLO backbone (train only the ReID head).
+_C.MODEL.YOLO.FREEZE_BACKBONE = False
+
 # JPM Parameter
 _C.MODEL.JPM = False
 _C.MODEL.SHIFT_NUM = 5

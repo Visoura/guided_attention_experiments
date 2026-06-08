@@ -9,7 +9,8 @@ setup(name='TranReID',
       url='xxx',
       install_requires=[
           'numpy', 'torch==1.6.0', 'torchvision==0.7.0',
-          'h5py', 'opencv-python', 'yacs', 'timm==0.3.2', 'wandb'
+          'h5py', 'opencv-python', 'yacs', 'timm==0.3.2', 'wandb',
+          'ultralytics'  # optional: only needed for MODEL.NAME == 'yolo'
           ],
       packages=find_packages(),
       keywords=[

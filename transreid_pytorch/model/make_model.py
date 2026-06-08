@@ -476,6 +476,100 @@ class build_transformer_local(nn.Module):
 
 
 
+class build_yolo(nn.Module):
+    """ReID model with an Ultralytics YOLO backbone.
+
+    Structural drop-in for ``build_transformer``: same constructor signature,
+    same BNNeck / classifier / ID-loss wiring, and the same forward/return
+    contract (train -> ``(cls_score, global_feat)``, eval -> ``feat``/``global_feat``).
+    ``cam_label``/``view_label``/``mask``/``img_paths`` are accepted for signature
+    compatibility but ignored (guided attention is ViT-specific).
+    """
+    def __init__(self, num_classes, camera_num, view_num, cfg):
+        super(build_yolo, self).__init__()
+        from .backbones.yolo_backbone import YOLOBackbone
+        model_path = cfg.MODEL.PRETRAIN_PATH
+        pretrain_choice = cfg.MODEL.PRETRAIN_CHOICE
+        self.cos_layer = cfg.MODEL.COS_LAYER
+        self.neck = cfg.MODEL.NECK
+        self.neck_feat = cfg.TEST.NECK_FEAT
+        self.reduce_feat_dim = cfg.MODEL.REDUCE_FEAT_DIM
+        self.feat_dim = cfg.MODEL.FEAT_DIM
+        self.dropout_rate = cfg.MODEL.DROPOUT_RATE
+
+        self.base = YOLOBackbone(cfg)
+        self.in_planes = self.base.in_planes
+        print('using YOLO backbone ({}, task={}, fusion={}), feature dim {}'.format(
+            cfg.MODEL.YOLO.WEIGHTS, self.base.task, cfg.MODEL.YOLO.FUSION, self.in_planes))
+
+        self.num_classes = num_classes
+        self.ID_LOSS_TYPE = cfg.MODEL.ID_LOSS_TYPE
+        if self.ID_LOSS_TYPE == 'arcface':
+            print('using {} with s:{}, m: {}'.format(self.ID_LOSS_TYPE,cfg.SOLVER.COSINE_SCALE,cfg.SOLVER.COSINE_MARGIN))
+            self.classifier = Arcface(self.in_planes, self.num_classes,
+                                      s=cfg.SOLVER.COSINE_SCALE, m=cfg.SOLVER.COSINE_MARGIN)
+        elif self.ID_LOSS_TYPE == 'cosface':
+            print('using {} with s:{}, m: {}'.format(self.ID_LOSS_TYPE,cfg.SOLVER.COSINE_SCALE,cfg.SOLVER.COSINE_MARGIN))
+            self.classifier = Cosface(self.in_planes, self.num_classes,
+                                      s=cfg.SOLVER.COSINE_SCALE, m=cfg.SOLVER.COSINE_MARGIN)
+        elif self.ID_LOSS_TYPE == 'amsoftmax':
+            print('using {} with s:{}, m: {}'.format(self.ID_LOSS_TYPE,cfg.SOLVER.COSINE_SCALE,cfg.SOLVER.COSINE_MARGIN))
+            self.classifier = AMSoftmax(self.in_planes, self.num_classes,
+                                        s=cfg.SOLVER.COSINE_SCALE, m=cfg.SOLVER.COSINE_MARGIN)
+        elif self.ID_LOSS_TYPE == 'circle':
+            print('using {} with s:{}, m: {}'.format(self.ID_LOSS_TYPE, cfg.SOLVER.COSINE_SCALE, cfg.SOLVER.COSINE_MARGIN))
+            self.classifier = CircleLoss(self.in_planes, self.num_classes,
+                                        s=cfg.SOLVER.COSINE_SCALE, m=cfg.SOLVER.COSINE_MARGIN)
+        else:
+            if self.reduce_feat_dim:
+                self.fcneck = nn.Linear(self.in_planes, self.feat_dim, bias=False)
+                self.fcneck.apply(weights_init_xavier)
+                self.in_planes = cfg.MODEL.FEAT_DIM
+            self.classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)
+            self.classifier.apply(weights_init_classifier)
+
+        self.bottleneck = nn.BatchNorm1d(self.in_planes)
+        self.bottleneck.bias.requires_grad_(False)
+        self.bottleneck.apply(weights_init_kaiming)
+
+        self.dropout = nn.Dropout(self.dropout_rate)
+
+        if pretrain_choice == 'self':
+            self.load_param(model_path)
+
+    def forward(self, x, label=None, cam_label=None, view_label=None, mask=None, img_paths=None):
+        global_feat = self.base(x)
+
+        if self.reduce_feat_dim:
+            global_feat = self.fcneck(global_feat)
+        feat = self.bottleneck(global_feat)
+        feat_cls = self.dropout(feat)
+
+        if self.training:
+            if self.ID_LOSS_TYPE in ('arcface', 'cosface', 'amsoftmax', 'circle'):
+                cls_score = self.classifier(feat_cls, label)
+            else:
+                cls_score = self.classifier(feat_cls)
+            return cls_score, global_feat  # global feature for triplet loss
+        else:
+            if self.neck_feat == 'after':
+                return feat
+            else:
+                return global_feat
+
+    def load_param(self, trained_path):
+        try:
+            param_dict = torch.load(trained_path, map_location='cpu', weights_only=False)
+        except:
+            param_dict = torch.load(trained_path, map_location='cpu')
+        for i in param_dict:
+            try:
+                self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
+            except:
+                continue
+        print('Loading pretrained model from {}'.format(trained_path))
+
+
 __factory_T_type = {
     'vit_base_patch16_224_TransReID': vit_base_patch16_224_TransReID,
     'deit_base_patch16_224_TransReID': vit_base_patch16_224_TransReID,
@@ -494,6 +588,9 @@ def make_model(cfg, num_class, camera_num, view_num):
         else:
             model = build_transformer(num_class, camera_num, view_num, cfg, __factory_T_type)
             print('===========building transformer===========')
+    elif cfg.MODEL.NAME == 'yolo':
+        model = build_yolo(num_class, camera_num, view_num, cfg)
+        print('===========building YOLO===========')
     else:
         model = Backbone(num_class, cfg)
         print('===========building ResNet===========')
