@@ -2,7 +2,7 @@ MODEL:
   NAME: 'yolo'
   PRETRAIN_CHOICE: ''   # ultralytics loads its own pretrained weights (via YOLO.WEIGHTS)
   YOLO:
-    WEIGHTS: 'yolo11n.pt'     # set to your model: yolo11n.pt / yolo11n-seg.pt / yolo11n-cls.pt
+    WEIGHTS: 'yolo11n-seg.pt'     # set to your model: yolo11n.pt / yolo11n-seg.pt / yolo11n-cls.pt
     TASK: 'segment'             # 'auto' | 'detect' | 'segment' | 'classify'
     FUSION: 'gap_concat'     # 'gap_concat' | 'deepest' | 'upsample_concat'
     FEATURE_LAYERS: []       # optional explicit layer indices; [] = head input maps
