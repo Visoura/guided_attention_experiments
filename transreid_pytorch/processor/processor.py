@@ -41,7 +41,7 @@ def do_train(cfg,
     acc_meter = AverageMeter()
 
     evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
-    scaler = torch.amp.GradScaler()
+    scaler = amp.GradScaler()
     # train
     for epoch in range(1, epochs + 1):
         start_time = time.time()
@@ -72,7 +72,7 @@ def do_train(cfg,
             target_view = target_view.to(device)
             if mask is not None:
                 mask = mask.to(device)
-            with torch.amp.autocast(enabled=True):
+            with amp.autocast(enabled=True):
                 model_output = model(img, target, cam_label=target_cam, view_label=target_view, mask=mask, img_paths=img_paths)
                 if isinstance(model_output, tuple) and len(model_output) == 4:
                     score, feat, student_tokens, teacher_tokens = model_output
