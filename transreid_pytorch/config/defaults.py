@@ -82,6 +82,9 @@ _C.MODEL.GRAM_ANCHOR_DINO_MODEL = 'dinov3-vits16-pretrain'  # used when TEACHER_
 _C.MODEL.GRAM_ANCHOR_TEACHER_CHECKPOINT = ''           # .pth path, used when TEACHER_TYPE='personvit'
 _C.MODEL.GRAM_ANCHOR_TEACHER_MODEL_KEY = 'personvit-vit_small'  # key from PERSONVIT_BACKBONES
 
+# Sapiens2 backbone parameters (used when MODEL.NAME == 'sapiens2')
+_C.MODEL.SAPIENS2_ARCH = 'sapiens2_0.4b'   # one of: sapiens2_0.1b/0.4b/0.8b/1b
+
 # YOLO (Ultralytics) backbone parameters (used when MODEL.NAME == 'yolo')
 _C.MODEL.YOLO = CN()
 # Ultralytics model: .pt (pretrained) or .yaml (scratch), e.g. 'yolo11n.pt',

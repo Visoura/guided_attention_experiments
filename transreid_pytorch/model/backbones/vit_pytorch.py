@@ -422,6 +422,15 @@ class TransReID(nn.Module):
                 newmodel[k] = v
                 param_dict = newmodel
 
+        # Finetuned TransReID checkpoint: backbone weights are under 'base.' prefix
+        if any(k.startswith('base.') for k in param_dict.keys()):
+            print('Detected finetuned TransReID checkpoint, extracting backbone weights...')
+            newmodel = {}
+            for k, v in param_dict.items():
+                if k.startswith('base.'):
+                    newmodel[k[len('base.'):]] = v
+            param_dict = newmodel
+
         for k, v in param_dict.items():
             if 'head' in k or 'dist' in k or 'pre_logits' in k:
                 continue

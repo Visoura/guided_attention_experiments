@@ -580,6 +580,77 @@ __factory_T_type = {
     'swin_small_patch4_window7_224': swin_small_patch4_window7_224,
 }
 
+
+class build_sapiens2(nn.Module):
+    """Zero-shot ReID model using a pretrained Sapiens2 backbone.
+
+    Drop-in replacement for build_transformer / build_yolo: same constructor
+    signature, same BNNeck wiring, same forward/return contract.
+    Pretrained weights are downloaded from HuggingFace at construction time.
+    cam_label / view_label / mask / img_paths are accepted for compatibility
+    but ignored — Sapiens2 uses RoPE and has no SIE conditioning.
+    """
+
+    def __init__(self, num_classes, camera_num, view_num, cfg):
+        super().__init__()
+        from .backbones.sapiens2_backbone import Sapiens2Backbone
+
+        self.neck_feat = cfg.TEST.NECK_FEAT
+        self.reduce_feat_dim = cfg.MODEL.REDUCE_FEAT_DIM
+        self.feat_dim = cfg.MODEL.FEAT_DIM
+        self.dropout_rate = cfg.MODEL.DROPOUT_RATE
+
+        arch = getattr(cfg.MODEL, 'SAPIENS2_ARCH', 'sapiens2_0.4b')
+        img_size = tuple(cfg.INPUT.SIZE_TRAIN)  # (H, W)
+        self.base = Sapiens2Backbone(arch=arch, img_size=img_size, ckpt_path=cfg.MODEL.PRETRAIN_PATH)
+        self.in_planes = self.base.in_planes
+
+        if self.reduce_feat_dim:
+            self.fcneck = nn.Linear(self.in_planes, self.feat_dim, bias=False)
+            self.fcneck.apply(weights_init_xavier)
+            self.in_planes = self.feat_dim
+
+        self.bottleneck = nn.BatchNorm1d(self.in_planes)
+        self.bottleneck.bias.requires_grad_(False)
+        self.bottleneck.apply(weights_init_kaiming)
+
+        self.dropout = nn.Dropout(self.dropout_rate)
+        print(f'===========Sapiens2 ({arch}) backbone, embed_dim={self.base.in_planes}===========')
+
+    def forward(self, x, label=None, cam_label=None, view_label=None, mask=None, img_paths=None):
+        global_feat = self.base(x)  # (B, embed_dim)
+
+        if self.reduce_feat_dim:
+            global_feat = self.fcneck(global_feat)
+
+        feat = self.bottleneck(global_feat)
+
+        if self.training:
+            feat_cls = self.dropout(feat)
+            return feat_cls, global_feat
+        else:
+            if self.neck_feat == 'after':
+                return feat
+            else:
+                return global_feat
+
+    def load_param(self, trained_path):
+        if not trained_path:
+            print('No fine-tuned weights path provided — using pretrained backbone only.')
+            return
+        try:
+            param_dict = torch.load(trained_path, map_location='cpu', weights_only=False)
+        except Exception:
+            param_dict = torch.load(trained_path, map_location='cpu')
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        for k, v in param_dict.items():
+            key = k.replace('module.', '')
+            if key in self.state_dict():
+                self.state_dict()[key].copy_(v)
+        print(f'Loaded fine-tuned weights from {trained_path}')
+
+
 def make_model(cfg, num_class, camera_num, view_num):
     if cfg.MODEL.NAME == 'transformer':
         if cfg.MODEL.JPM:
@@ -591,6 +662,9 @@ def make_model(cfg, num_class, camera_num, view_num):
     elif cfg.MODEL.NAME == 'yolo':
         model = build_yolo(num_class, camera_num, view_num, cfg)
         print('===========building YOLO===========')
+    elif cfg.MODEL.NAME == 'sapiens2':
+        model = build_sapiens2(num_class, camera_num, view_num, cfg)
+        print('===========building Sapiens2===========')
     else:
         model = Backbone(num_class, cfg)
         print('===========building ResNet===========')
